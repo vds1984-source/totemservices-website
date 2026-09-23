@@ -1,0 +1,5 @@
+RewriteEngine On
+
+# Canonical hostname: redirect www to non-www and preserve the full path
+RewriteCond %{HTTP_HOST} ^www\.totemservices\.org$ [NC]
+RewriteRule ^ https://totemservices.org%{REQUEST_URI} [R=301,L]
