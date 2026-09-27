@@ -135,11 +135,37 @@ $service   = clean_value($_POST['Service'] ?? '', 120);
 $budget    = clean_value($_POST['Budget'] ?? '', 80);
 $challenge = clean_value($_POST['Challenge'] ?? '', 2000);
 $startedAt = (int)($_POST['started_at'] ?? 0);
+$formType = clean_value($_POST['FormType'] ?? 'general', 30);
 
+// Minimum required fields for every website enquiry.
 if ($name === '' || $business === '' || $phone === '') {
     http_response_code(422);
-    echo json_encode(['ok' => false, 'message' => 'Please complete name, business and phone.']);
+    echo json_encode([
+        'ok' => false,
+        'message' => 'Please complete name, business and phone.'
+    ]);
     exit;
+}
+
+// Request Proposal requires complete qualification information.
+if (
+    $formType === 'proposal' &&
+    (
+        $email === '' ||
+        $city === '' ||
+        $industry === '' ||
+        $service === '' ||
+        $budget === '' ||
+        $challenge === ''
+    )
+) {
+    http_response_code(422);
+    echo json_encode([
+        'ok' => false,
+        'message' => 'Please complete all required proposal fields.'
+    ]);
+    exit;
+
 }
 
 if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {

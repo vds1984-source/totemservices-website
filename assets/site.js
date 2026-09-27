@@ -18,28 +18,51 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   document.querySelectorAll('.leadform').forEach(form=>{
     form.addEventListener('submit',async e=>{
-      e.preventDefault();
-      const submit=form.querySelector('button[type="submit"]');
-      const status=form.querySelector('.form-status');
-      const fd=new FormData(form);
+  e.preventDefault();
+
+  if(!form.checkValidity()){
+    form.reportValidity();
+    return;
+  }
+
+ const submit=form.querySelector('button[type="submit"]');
+
+let status=form.querySelector('.form-status');
+
+if(!status && submit){
+  status=document.createElement('div');
+  status.className='form-status wide';
+  status.setAttribute('role','status');
+  status.setAttribute('aria-live','polite');
+  submit.insertAdjacentElement('afterend',status);
+}
+
+const fd=new FormData(form);
       const payload=Object.fromEntries(fd.entries());
       const waLines=['New Website Enquiry'];
       for(const [k,v] of Object.entries(payload)){
-        if(v && !['website','started_at'].includes(k)) waLines.push(`${k}: ${v}`);
+        if(v && !['website','started_at','FormType'].includes(k)) waLines.push(`${k}: ${v}`);
       }
       const waUrl='https://wa.me/918278416000?text='+encodeURIComponent(waLines.join('\n'));
       const setStatus=(type,html)=>{
         if(!status) return;
-        if(!type){ status.className='form-status'; status.innerHTML=''; return; }
-        status.className=`form-status show ${type}`;
-        status.innerHTML=html;
+       if(!type){
+  status.className='form-status wide';
+  status.innerHTML='';
+  return;
+}
+
+status.className=`form-status wide show ${type}`;
+status.innerHTML=html;
       };
 
       if(submit){submit.disabled=true;submit.textContent='Sending…';}
       setStatus('', '');
 
       try{
-        const response=await fetch(form.action||'/api/contact.php',{
+        const action=form.getAttribute('action') || '/api/contact.php';
+
+const response=await fetch(action,{
           method:'POST',
           headers:{'Accept':'application/json'},
           body:fd
