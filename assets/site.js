@@ -4,7 +4,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   const nav=document.querySelector('.nav');
 
   if(menuButton&&nav){
-    menuButton.addEventListener('click',()=>nav.classList.toggle('open'));
+    menuButton.setAttribute('aria-expanded','false');
+    menuButton.addEventListener('click',()=>{
+      const open=nav.classList.toggle('open');
+      menuButton.setAttribute('aria-expanded',String(open));
+    });
   }
 
   // Make the company portal available site-wide without duplicating header markup on every page.
@@ -30,16 +34,36 @@ document.addEventListener('DOMContentLoaded',()=>{
   // Website enquiry forms
   document.querySelectorAll('.leadform').forEach(form=>{
 
+    const submit=form.querySelector('button[type="submit"]');
+    const originalLabel=submit ? submit.textContent : '';
+    const started=form.querySelector('[name="started_at"]');
+    let submitting=false;
+
+    // Initialise every form, including the visitor's first submission.
+    if(started) started.value=Math.floor(Date.now()/1000);
+
+    // Only standard campaign fields are captured; never forward the full query string.
+    const query=new URLSearchParams(window.location.search);
+    for(const key of ['source','medium','campaign','term','content']){
+      const value=query.get('utm_'+key);
+      if(!value) continue;
+      const input=document.createElement('input');
+      input.type='hidden';
+      input.name='UTM_'+key;
+      input.value=value.slice(0,200);
+      form.appendChild(input);
+    }
+
     form.addEventListener('submit',async e=>{
 
       e.preventDefault();
+
+      if(submitting) return;
 
       if(!form.checkValidity()){
         form.reportValidity();
         return;
       }
-
-      const submit=form.querySelector('button[type="submit"]');
 
       let status=form.querySelector('.form-status');
 
@@ -57,7 +81,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       const waLines=['New Website Enquiry'];
 
       for(const [k,v] of Object.entries(payload)){
-        if(v && !['website','started_at','FormType'].includes(k)){
+        if(v && ['Name','Business','Phone','Email','City','Industry','Service','Budget','Challenge'].includes(k)){
           waLines.push(`${k}: ${v}`);
         }
       }
@@ -65,19 +89,31 @@ document.addEventListener('DOMContentLoaded',()=>{
       const waUrl='https://wa.me/918278416000?text='+
         encodeURIComponent(waLines.join('\n'));
 
-      const setStatus=(type,html)=>{
+      const setStatus=(type,message,whatsApp=false)=>{
 
         if(!status) return;
 
         if(!type){
           status.className='form-status wide';
-          status.innerHTML='';
+          status.textContent='';
           return;
         }
 
         status.className=`form-status wide show ${type}`;
-        status.innerHTML=html;
+        status.textContent=message;
+        if(whatsApp){
+          const link=document.createElement('a');
+          link.href=waUrl;
+          link.target='_blank';
+          link.rel='noopener noreferrer';
+          link.textContent='Continue on WhatsApp →';
+          status.appendChild(document.createTextNode(' '));
+          status.appendChild(link);
+        }
       };
+
+      submitting=true;
+      form.setAttribute('aria-busy','true');
 
       if(submit){
         submit.disabled=true;
@@ -100,8 +136,13 @@ document.addEventListener('DOMContentLoaded',()=>{
 
         const data=await response.json().catch(()=>({}));
 
-        if(!response.ok || !data.ok){
-          throw new Error(data.message||'Unable to send enquiry');
+        if(response.status===422 || response.status===429){
+          setStatus('error',typeof data.message==='string' ? data.message : 'Please check your details and try again.');
+          return;
+        }
+
+        if(!response.ok || data.ok!==true){
+          throw new Error('Unable to confirm delivery');
         }
 
         setStatus(
@@ -109,36 +150,42 @@ document.addEventListener('DOMContentLoaded',()=>{
           'Thank you. Your enquiry has been sent to the Totem team. We will contact you shortly.'
         );
 
-        if(typeof gtag==='function'){
-          gtag('event','generate_lead',{
-            event_category:'Contact Form'
-          });
-        }
-
-        if(typeof fbq==='function'){
-          fbq('track','Lead');
-        }
-
         form.reset();
-
-        const started=form.querySelector('[name="started_at"]');
 
         if(started){
           started.value=Math.floor(Date.now()/1000);
         }
 
+        // Tracking failures must never turn a delivered enquiry into a failure message.
+        try{
+          if(typeof gtag==='function'){
+            gtag('event','generate_lead',{
+              event_category:'Website Enquiry',
+              form_type:form.querySelector('[name="FormType"]')?.value || 'contact'
+            });
+          }
+        }catch(trackingError){ /* Enquiry already delivered. */ }
+
+        try{
+          if(typeof fbq==='function') fbq('track','Lead');
+        }catch(trackingError){ /* Enquiry already delivered. */ }
+
       }catch(err){
 
         setStatus(
           'error',
-          `We could not deliver the email right now. <a href="${waUrl}" target="_blank" rel="noopener noreferrer"><strong>Continue on WhatsApp →</strong></a>`
+          'We could not confirm delivery right now. You can contact us on WhatsApp.',
+          true
         );
 
       }finally{
 
+        submitting=false;
+        form.setAttribute('aria-busy','false');
+
         if(submit){
           submit.disabled=false;
-          submit.textContent='Send Enquiry';
+          submit.textContent=originalLabel;
         }
       }
 

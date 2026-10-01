@@ -3,21 +3,32 @@
 // Public-facing email remains info@totemservices.org.
 // SMTP password is intentionally stored OUTSIDE public_html / GitHub.
 
-header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 header('Cache-Control: no-store');
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['ok' => false, 'message' => 'Method not allowed']);
+function totem_respond(int $code, string $message, array $errors = []): void {
+    http_response_code($code);
+    if (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false) {
+        header('Content-Type: application/json; charset=utf-8');
+        $response = ['ok' => $code === 200, 'message' => $message];
+        if ($errors) $response['errors'] = $errors;
+        echo json_encode($response, JSON_UNESCAPED_UNICODE);
+    } else {
+        // Ordinary POST submissions also get a readable, private confirmation.
+        header('Content-Type: text/html; charset=utf-8');
+        $title = $code === 200 ? 'Enquiry received' : 'Please check your enquiry';
+        echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>' . $title . ' | Totem</title><link rel="stylesheet" href="/assets/style.css"></head><body><main class="section"><div class="wrap"><div class="card"><h1>' . $title . '</h1><p>' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p><a class="btn" href="/contact/">Contact Totem</a> <a class="btn2" href="https://wa.me/918278416000">WhatsApp Us</a></div></div></main></body></html>';
+    }
     exit;
 }
 
-function clean_value($value, $max = 500) {
-    $value = is_string($value) ? trim($value) : '';
-    $value = str_replace(["\r", "\0"], '', $value);
-    if (function_exists('mb_substr')) return mb_substr($value, 0, $max);
-    return substr($value, 0, $max);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Allow: POST');
+    totem_respond(405, 'Please submit your enquiry using a website form.');
+}
+
+if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 32768) {
+    totem_respond(413, 'Your enquiry is too large. Please shorten it and try again.');
 }
 
 function smtp_read_response($socket) {
@@ -121,65 +132,31 @@ function smtp_send_mail($host, $port, $username, $password, $recipient, $replyTo
 
 // Honeypot: normal visitors never fill this field.
 if (!empty($_POST['website'])) {
-    echo json_encode(['ok' => true]);
-    exit;
+    totem_respond(200, 'Thank you. Your enquiry has been received.');
 }
 
-$name      = clean_value($_POST['Name'] ?? '', 100);
-$business  = clean_value($_POST['Business'] ?? '', 120);
-$phone     = clean_value($_POST['Phone'] ?? '', 40);
-$email     = clean_value($_POST['Email'] ?? '', 160);
-$city      = clean_value($_POST['City'] ?? '', 100);
-$industry  = clean_value($_POST['Industry'] ?? '', 120);
-$service   = clean_value($_POST['Service'] ?? '', 120);
-$budget    = clean_value($_POST['Budget'] ?? '', 80);
-$challenge = clean_value($_POST['Challenge'] ?? '', 2000);
-$startedAt = (int)($_POST['started_at'] ?? 0);
-$formType = clean_value($_POST['FormType'] ?? 'general', 30);
-
-// Minimum required fields for every website enquiry.
-if ($name === '' || $business === '' || $phone === '') {
-    http_response_code(422);
-    echo json_encode([
-        'ok' => false,
-        'message' => 'Please complete name, business and phone.'
-    ]);
-    exit;
+require_once __DIR__ . '/enquiry-validation.php';
+$validation = totem_validate_enquiry($_POST, time());
+if ($validation['errors']) {
+    totem_respond(422, reset($validation['errors']), $validation['errors']);
 }
 
-// Request Proposal requires complete qualification information.
-if (
-    $formType === 'proposal' &&
-    (
-        $email === '' ||
-        $city === '' ||
-        $industry === '' ||
-        $service === '' ||
-        $budget === '' ||
-        $challenge === ''
-    )
-) {
-    http_response_code(422);
-    echo json_encode([
-        'ok' => false,
-        'message' => 'Please complete all required proposal fields.'
-    ]);
-    exit;
-
+if ($validation['too_fast']) {
+    header('Retry-After: 2');
+    totem_respond(429, 'Please wait a moment and try again.');
 }
 
-if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    http_response_code(422);
-    echo json_encode(['ok' => false, 'message' => 'Please enter a valid email address.']);
-    exit;
-}
-
-// Basic bot-speed check. Allow submissions when JS is unavailable and timestamp is absent.
-if ($startedAt > 0 && (time() - $startedAt) < 2) {
-    http_response_code(429);
-    echo json_encode(['ok' => false, 'message' => 'Please wait a moment and try again.']);
-    exit;
-}
+$fields    = $validation['fields'];
+$name      = $fields['Name'];
+$business  = $fields['Business'];
+$phone     = $fields['Phone'];
+$email     = $fields['Email'];
+$city      = $fields['City'];
+$industry  = $fields['Industry'];
+$service   = $fields['Service'];
+$budget    = $fields['Budget'];
+$challenge = $fields['Challenge'];
+$formType  = $fields['FormType'];
 
 $smtpHost = 'smtp.hostinger.com';
 $smtpPort = 465;
@@ -200,9 +177,7 @@ if ($smtpPassword === '') {
 
 if ($smtpPassword === '') {
     error_log('Totem contact form: SMTP password not configured');
-    http_response_code(503);
-    echo json_encode(['ok' => false, 'message' => 'Email delivery is temporarily unavailable.']);
-    exit;
+    totem_respond(503, 'Enquiry delivery is temporarily unavailable. Please contact us on WhatsApp.');
 }
 
 $subjectBusiness = preg_replace('/[^A-Za-z0-9 .&()_-]/', '', $business ?: $name);
@@ -225,16 +200,19 @@ $lines = [
     '',
     'Submitted: ' . date('c'),
     'IP: ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'),
-    'Source: https://totemservices.org/contact/'
+    'Form: ' . $formType,
+    'Source: ' . $validation['source_url'],
 ];
+foreach (['source', 'medium', 'campaign', 'term', 'content'] as $key) {
+    if ($fields['UTM_' . $key] !== '') $lines[] = 'UTM ' . $key . ': ' . $fields['UTM_' . $key];
+}
 $body = implode("\n", $lines);
 
 try {
     smtp_send_mail($smtpHost, $smtpPort, $smtpUser, $smtpPassword, $recipient, $email, $subject, $body);
-    echo json_encode(['ok' => true]);
+    totem_respond(200, 'Thank you. Your enquiry has been sent to the Totem team.');
 } catch (Throwable $e) {
     // Never expose SMTP details to the visitor.
     error_log('Totem contact form SMTP error: ' . $e->getMessage());
-    http_response_code(503);
-    echo json_encode(['ok' => false, 'message' => 'Email delivery is temporarily unavailable.']);
+    totem_respond(503, 'Enquiry delivery is temporarily unavailable. Please contact us on WhatsApp.');
 }
