@@ -1,0 +1,27 @@
+/* Illustrations reused from Totem's previous website. */
+.service-illustrated-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, .85fr);
+  align-items: center;
+  gap: clamp(24px, 4vw, 52px);
+}
+.service-illustrated-copy { min-width: 0; }
+.pagehero .service-illustrated-copy h1 {
+  font-size: clamp(36px, 4.2vw, 60px);
+}
+.service-illustrated-art {
+  width: 100%;
+  max-width: 460px;
+  min-width: 0;
+  margin: 0;
+  justify-self: center;
+}
+.service-illustrated-art img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+@media (max-width: 860px) {
+  .service-illustrated-grid { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .service-illustrated-art { max-width: 380px; }
+}
