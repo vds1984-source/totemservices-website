@@ -1,0 +1,43 @@
+name: Website checks
+
+'on':
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  website-checks:
+    name: Website checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Media paths are checked against Git's inventory, without downloading reels.
+          sparse-checkout: |
+            /*
+            !*.mp4
+          sparse-checkout-cone-mode: false
+
+      - name: Check pages, metadata, sitemap and local links
+        run: python3 scripts/check-website.py
+
+      - name: Check JavaScript syntax
+        run: git ls-files -z '*.js' | xargs -0 -r -n 1 node --check
+
+      - name: Check PHP syntax
+        run: git ls-files -z '*.php' | xargs -0 -r -n 1 php -n -l
