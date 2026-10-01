@@ -146,6 +146,27 @@ if ($validation['too_fast']) {
     totem_respond(429, 'Please wait a moment and try again.');
 }
 
+// Shared server-side limit for Contact, Consultation and Proposal.
+require_once __DIR__ . '/enquiry-rate-limit.php';
+try {
+    $rateLimit = totem_limit_enquiry(
+        $_SERVER['REMOTE_ADDR'] ?? '',
+        time(),
+        $_SERVER['DOCUMENT_ROOT'] ?? ''
+    );
+} catch (Throwable $e) {
+    // Keep internal paths and storage errors out of the visitor response.
+    error_log('Totem enquiry rate limit: ' . $e->getMessage());
+    header('Retry-After: 60');
+    totem_respond(503, 'Enquiry delivery is temporarily unavailable. Please contact us on WhatsApp.');
+}
+if (!$rateLimit['allowed']) {
+    header('Retry-After: ' . $rateLimit['retry_after']);
+    $waitMinutes = (int)ceil($rateLimit['retry_after'] / 60);
+    $waitText = $waitMinutes === 1 ? '1 minute' : $waitMinutes . ' minutes';
+    totem_respond(429, 'Too many enquiries have been submitted from this connection. Please wait ' . $waitText . ' and try again, or contact us on WhatsApp.');
+}
+
 $fields    = $validation['fields'];
 $name      = $fields['Name'];
 $business  = $fields['Business'];
