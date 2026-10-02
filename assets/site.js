@@ -1,5 +1,88 @@
 document.addEventListener('DOMContentLoaded',()=>{
 
+  // Preserve only campaign labels for this tab, for at most 30 minutes.
+  // Enquiry contents, personal details and full URLs are never stored here.
+  const campaignKeys=['source','medium','campaign','term','content'];
+  const campaignStorageKey='totem_campaign_v1';
+  const campaignLifetime=30*60*1000;
+  const campaignNow=Date.now();
+  const campaignQuery=new URLSearchParams(window.location.search);
+  let campaignFields={};
+
+  for(const key of campaignKeys){
+    const value=campaignQuery.get('utm_'+key);
+    if(value){
+      const clean=Array.from(value.replace(/[\u0000-\u001f\u007f]/g,'').trim()).slice(0,200).join('');
+      if(clean) campaignFields[key]=clean;
+    }
+  }
+
+  if(Object.keys(campaignFields).length){
+    // A new campaign replaces the previous campaign; never combine two touches.
+    try{
+      window.sessionStorage.setItem(campaignStorageKey,JSON.stringify({
+        captured_at:campaignNow,
+        fields:campaignFields
+      }));
+    }catch(storageError){ /* Current-page attribution still works. */ }
+  }else{
+    try{
+      const saved=JSON.parse(window.sessionStorage.getItem(campaignStorageKey) || 'null');
+      if(saved && Number.isFinite(saved.captured_at) &&
+         saved.captured_at<=campaignNow && campaignNow-saved.captured_at<campaignLifetime &&
+         saved.fields && typeof saved.fields==='object' && !Array.isArray(saved.fields)){
+        for(const key of campaignKeys){
+          if(typeof saved.fields[key]==='string'){
+            const clean=Array.from(saved.fields[key].replace(/[\u0000-\u001f\u007f]/g,'').trim()).slice(0,200).join('');
+            if(clean) campaignFields[key]=clean;
+          }
+        }
+      }else if(saved){
+        window.sessionStorage.removeItem(campaignStorageKey);
+      }
+    }catch(storageError){ /* Storage is optional; forms remain usable. */ }
+  }
+
+  const trackContactEvent=(eventName,parameters)=>{
+    try{
+      if(typeof gtag==='function') gtag('event',eventName,parameters);
+    }catch(trackingError){ /* Analytics must not interrupt contact actions. */ }
+  };
+
+  // A phone or WhatsApp click is an intent signal, not a delivered enquiry.
+  // Delegation also covers the WhatsApp fallback inserted after a failed form.
+  document.addEventListener('click',event=>{
+    const link=event.target?.closest?.('a[href]');
+    if(!link) return;
+
+    let destination;
+    try{ destination=new URL(link.href,window.location.href); }
+    catch(urlError){ return; }
+
+    let eventName='';
+    if(destination.protocol==='tel:' && destination.pathname.replace(/\D/g,'')==='918278416000'){
+      eventName='click_phone';
+    }else if(destination.protocol==='https:' && destination.hostname==='wa.me' &&
+             destination.pathname==='/918278416000'){
+      eventName='click_whatsapp';
+    }
+    if(!eventName) return;
+
+    let placement='content';
+    if(link.closest('.form-status')) placement='form_fallback';
+    else if(link.closest('.mobilebar')) placement='mobile_bar';
+    else if(link.closest('.utility')) placement='utility';
+    else if(link.closest('.footer')) placement='footer';
+    else if(link.classList.contains('wa')) placement='floating_button';
+    else if(link.closest('.header')) placement='header';
+
+    // Do not send link URLs/text: the fallback URL can contain enquiry details.
+    trackContactEvent(eventName,{
+      event_category:'Website Contact',
+      contact_placement:placement
+    });
+  });
+
   const menuButton=document.querySelector('.menuBtn');
   const nav=document.querySelector('.nav');
 
@@ -42,17 +125,22 @@ document.addEventListener('DOMContentLoaded',()=>{
     // Initialise every form, including the visitor's first submission.
     if(started) started.value=Math.floor(Date.now()/1000);
 
-    // Only standard campaign fields are captured; never forward the full query string.
-    const query=new URLSearchParams(window.location.search);
-    for(const key of ['source','medium','campaign','term','content']){
-      const value=query.get('utm_'+key);
-      if(!value) continue;
-      const input=document.createElement('input');
-      input.type='hidden';
-      input.name='UTM_'+key;
-      input.value=value.slice(0,200);
-      form.appendChild(input);
-    }
+    // Keep campaign labels available when a visitor reaches a form from another page.
+    const applyCampaignFields=()=>{
+      for(const key of campaignKeys){
+        const value=campaignFields[key];
+        if(!value) continue;
+        let input=form.querySelector(`[name="UTM_${key}"]`);
+        if(!input){
+          input=document.createElement('input');
+          input.type='hidden';
+          input.name='UTM_'+key;
+          form.appendChild(input);
+        }
+        input.value=value;
+      }
+    };
+    applyCampaignFields();
 
     form.addEventListener('submit',async e=>{
 
@@ -75,19 +163,16 @@ document.addEventListener('DOMContentLoaded',()=>{
         submit.insertAdjacentElement('afterend',status);
       }
 
+      applyCampaignFields();
       const fd=new FormData(form);
-      const payload=Object.fromEntries(fd.entries());
+      const honeypotFilled=Boolean(fd.get('website'));
+      const requestedFormType=form.querySelector('[name="FormType"]')?.value;
+      const formType=['contact','consultation','proposal'].includes(requestedFormType) ? requestedFormType : 'contact';
 
-      const waLines=['New Website Enquiry'];
-
-      for(const [k,v] of Object.entries(payload)){
-        if(v && ['Name','Business','Phone','Email','City','Industry','Service','Budget','Challenge'].includes(k)){
-          waLines.push(`${k}: ${v}`);
-        }
-      }
-
+      // Outbound-link analytics may record URLs automatically. Keep enquiry
+      // details out of this link; the visitor can share them inside WhatsApp.
       const waUrl='https://wa.me/918278416000?text='+
-        encodeURIComponent(waLines.join('\n'));
+        encodeURIComponent('Hello Totem, I would like help with my website enquiry.');
 
       const setStatus=(type,message,whatsApp=false)=>{
 
@@ -157,18 +242,16 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
 
         // Tracking failures must never turn a delivered enquiry into a failure message.
-        try{
-          if(typeof gtag==='function'){
-            gtag('event','generate_lead',{
+        if(!honeypotFilled){
+          trackContactEvent('generate_lead',{
               event_category:'Website Enquiry',
-              form_type:form.querySelector('[name="FormType"]')?.value || 'contact'
-            });
-          }
-        }catch(trackingError){ /* Enquiry already delivered. */ }
+              form_type:formType
+          });
 
-        try{
-          if(typeof fbq==='function') fbq('track','Lead');
-        }catch(trackingError){ /* Enquiry already delivered. */ }
+          try{
+            if(typeof fbq==='function') fbq('track','Lead');
+          }catch(trackingError){ /* Enquiry already delivered. */ }
+        }
 
       }catch(err){
 
