@@ -1,0 +1,44 @@
+/* Live project links in the portfolio and website-development service. */
+.website-project-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 20px;
+}
+.website-project-card {
+  min-width: 0;
+  border: 1px solid #e9e3d8;
+  border-radius: 20px;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .05);
+  scroll-margin-top: 120px;
+}
+.website-project-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 15px 16px 24px;
+  background: #f0ece2;
+  min-height: 200px;
+}
+.website-project-address {
+  display: block;
+  width: 100%;
+  background: #fff;
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: #505050;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.website-project-monogram { font-size: 48px; font-weight: 800; color: #353535; line-height: 1.2; margin: 24px 0 10px; }
+.website-project-label { font-size: 12px; color: #43571f; font-weight: 700; }
+.website-project-body { padding: 24px; }
+.website-project-body h3 { font-size: 22px; line-height: 1.3; margin: 8px 0 12px; overflow-wrap: anywhere; }
+.website-project-body p { font-size: 14px; color: #505050; margin: 0 0 20px; }
+.project-category { font-size: 11px; color: #43571f; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.website-project-body a:focus-visible { outline: 3px solid #526b26; outline-offset: 4px; }
+@media (max-width: 950px) { .website-project-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .website-project-grid { grid-template-columns: minmax(0, 1fr); } }
