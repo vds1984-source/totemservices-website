@@ -1,4 +1,4 @@
-/* Illustrations reused from Totem's previous website. */
+/* Service illustrations, including artwork supplied by Totem. */
 .service-illustrated-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(0, .85fr);
@@ -20,6 +20,17 @@
   display: block;
   width: 100%;
   height: auto;
+}
+.supplied-service-art img {
+  max-height: 420px;
+  object-fit: contain;
+}
+.service-card-art {
+  display: block;
+  width: 100%;
+  height: 160px;
+  object-fit: contain;
+  margin-bottom: 22px;
 }
 @media (max-width: 860px) {
   .service-illustrated-grid { grid-template-columns: minmax(0, 1fr); gap: 32px; }

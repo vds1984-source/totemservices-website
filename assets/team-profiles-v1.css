@@ -1,0 +1,51 @@
+/* Supplied founder qualifications and team roles. */
+.team-roster {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  list-style: none;
+  margin: 30px 0;
+  padding: 0;
+}
+.team-profile { min-width: 0; scroll-margin-top: 120px; }
+.person-initials {
+  display: flex;
+  width: 64px;
+  height: 64px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  background: #353535;
+  color: #e0c58f;
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 22px;
+}
+.team-profile h3, .founder-profile h3 {
+  font-size: 23px;
+  line-height: 1.3;
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+}
+.team-profile .team-role { margin: 0; font-size: 15px; color: #505050; }
+.team-department {
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  align-items: center;
+}
+.team-department h3 { font-size: 24px; line-height: 1.3; margin: 10px 0; }
+.team-department p { margin: 0; }
+.team-department .btn2 { flex-shrink: 0; }
+.profile-qualifications { margin: 20px 0 0; }
+.profile-qualifications > div { padding: 14px 0; border-top: 1px solid #ece8df; }
+.profile-qualifications dt { font-weight: 800; color: #43571f; }
+.profile-qualifications dd { margin: 4px 0 0; color: #505050; }
+#qualifications, #team-members { scroll-margin-top: 120px; }
+@media (max-width: 950px) {
+  .team-roster { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .team-department { align-items: flex-start; flex-direction: column; }
+}
+@media (max-width: 620px) {
+  .team-roster { grid-template-columns: minmax(0, 1fr); }
+}

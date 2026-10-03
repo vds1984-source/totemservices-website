@@ -1,0 +1,16 @@
+/* Readable search-service and Insights content. */
+.search-content .pagehero h1{font-size:clamp(36px,4.8vw,64px);line-height:1.12;max-width:1060px}
+.search-content .grid3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.search-content .card h3{line-height:1.25;margin:0 0 12px}
+.search-content .card p{margin:0;line-height:1.7}
+.search-content .card a,.search-content .section p>a{color:#43571f;text-decoration:underline;text-underline-offset:3px}
+.search-content .card a:focus-visible,.search-content .section p>a:focus-visible{outline:3px solid #526b26;outline-offset:4px}
+.search-content .small{color:#666}
+.search-content .section{scroll-margin-top:96px}
+.insight-article .wrap{max-width:1040px}
+.insight-article .section{padding:54px 0}
+.insight-article .section h2{font-size:clamp(28px,3.2vw,42px);line-height:1.15}
+.insight-article .section li{margin-bottom:12px}
+.insight-article .section p,.insight-article .section li{line-height:1.8}
+@media(max-width:800px){.search-content .grid3{grid-template-columns:1fr}}
+@media(max-width:650px){.search-content .pagehero{padding:62px 0}.search-content .pagehero h1{font-size:clamp(32px,9vw,44px)}.insight-article .section{padding:42px 0}}
