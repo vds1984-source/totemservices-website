@@ -1,0 +1,74 @@
+/* Portfolio layouts and the Fashion industry hero. */
+.portfolio-page .work-hero { padding: 62px 0 50px; }
+.portfolio-page .work-hero h1 {
+  max-width: 920px;
+  font-size: clamp(36px, 4.6vw, 62px);
+  line-height: 1.1;
+  letter-spacing: -.045em;
+}
+.portfolio-page .work-hero p { max-width: 760px; font-size: 17px; }
+.work-hero-links { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 28px; }
+.work-hero-links a { font-size: 14px; font-weight: 750; border-bottom: 1px solid #d1c7b5; padding-bottom: 4px; }
+.work-content { padding: 36px 0 72px; }
+.work-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 36px; }
+.work-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.work-filter { border: 1px solid #ded9cf; border-radius: 999px; padding: 10px 15px; min-height: 42px; font: 700 13px/1.3 Inter, Arial, sans-serif; color: #353535; background: #fff; cursor: pointer; }
+.work-filter:hover { border-color: #526b26; color: #43571f; }
+.work-filter.active { color: #fff; background: #353535; border-color: #353535; }
+.work-result-count { color: #666; font-size: 12px; margin: 0; }
+.work-group { margin: 0 0 56px; scroll-margin-top: 106px; }
+.work-group[hidden], .work-card[hidden], .work-video-fallback[hidden] { display: none !important; }
+.work-group-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 24px; }
+.work-group-heading h2 { font-size: clamp(26px, 3vw, 36px); line-height: 1.15; letter-spacing: -.035em; margin: 7px 0 10px; }
+.work-group-heading p { color: #666; font-size: 14px; margin: 0; }
+.work-section-count { flex-shrink: 0; font-size: 12px; color: #43571f; background: #eff3e8; padding: 6px 11px; border-radius: 999px; }
+.work-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
+.work-card { min-width: 0; display: flex; flex-direction: column; background: #fff; border: 1px solid #e9e3d8; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.035); }
+.work-card:hover { border-color: #c6b99e; box-shadow: 0 12px 30px rgba(0,0,0,.07); }
+.work-browser-bar { display: flex; align-items: center; gap: 12px; min-height: 35px; padding: 9px 14px; font-size: 10px; background: #f5f2eb; border-bottom: 1px solid #e9e3d8; color: #555; }
+.work-browser-bar > span:last-child { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.work-browser-dots { display: flex; gap: 4px; flex-shrink: 0; }
+.work-browser-dots i { display: block; width: 6px; height: 6px; border-radius: 50%; background: #c9c2b5; }
+.work-site-art { height: 205px; overflow: hidden; background: #f3f1eb; border-bottom: 1px solid #e9e3d8; }
+.work-site-art img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+.work-site-logo { background: #243142; }
+.work-site-logo img { object-fit: contain; padding: 34px 24px; }
+.work-card-body { display: flex; flex-direction: column; flex-grow: 1; padding: 22px; }
+.work-category { color: #43571f; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.work-card-body h3 { font-size: 21px; line-height: 1.25; letter-spacing: -.02em; margin: 9px 0 12px; overflow-wrap: anywhere; }
+.work-card-body p { font-size: 14px; color: #626262; line-height: 1.65; margin: 0 0 20px; }
+.work-project-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid #eee8de; padding-top: 16px; margin-top: auto; font-size: 13px; font-weight: 800; }
+.work-project-link:hover { color: #43571f; }
+.work-video-frame { background: #efede7; border-bottom: 1px solid #e9e3d8; }
+.work-video-frame video { display: block; width: 100%; height: 340px; aspect-ratio: auto; object-fit: contain; background: #efede7; }
+.work-reel .work-card-body { padding: 19px 22px; }
+.work-reel .work-card-body h3 { font-size: 19px; margin: 8px 0; }
+.work-reel .work-video-note { font-size: 12px; margin: 0; }
+.work-video-fallback { margin-top: 14px !important; padding-top: 12px; border-top: 1px solid #eee8de; }
+.work-video-fallback a { font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.work-cta { display: flex; align-items: center; justify-content: space-between; gap: 28px; padding: 30px 34px; border-radius: 16px; background: #f7f4ed; }
+.work-cta h2 { font-size: clamp(25px, 3vw, 34px); line-height: 1.15; letter-spacing: -.03em; margin: 8px 0 12px; }
+.work-cta p { color: #666; font-size: 14px; margin: 0; }
+.work-cta > a { flex-shrink: 0; }
+.portfolio-page a:focus-visible, .work-filter:focus-visible { outline: 3px solid #526b26; outline-offset: 4px; }
+.fashion-page .pagehero { padding: 66px 0; }
+.fashion-page .pagehero h1 { max-width: 940px; font-size: clamp(36px, 4.6vw, 62px); line-height: 1.12; letter-spacing: -.04em; }
+.fashion-page .pagehero p { max-width: 760px; font-size: 17px; }
+@media (max-width: 900px) {
+  .work-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .work-cta { align-items: flex-start; flex-direction: column; }
+}
+@media (max-width: 620px) {
+  .portfolio-page .work-hero, .fashion-page .pagehero { padding: 42px 0 36px; }
+  .portfolio-page .work-hero h1, .fashion-page .pagehero h1 { font-size: clamp(32px, 8.5vw, 44px); }
+  .work-hero-links { gap: 12px 20px; margin-top: 22px; }
+  .work-content { padding: 28px 0 52px; }
+  .work-toolbar { gap: 12px; margin-bottom: 28px; }
+  .work-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .work-group { margin-bottom: 42px; }
+  .work-group-heading { align-items: flex-start; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+  .work-site-art { height: 200px; }
+  .work-video-frame video { height: 360px; }
+  .work-card-body { padding: 20px; }
+  .work-cta { padding: 26px 22px; }
+}
