@@ -1,0 +1,2 @@
+# hPanel owns this authentication file; keep it out of website source updates.
+/totem-crm-test/.htaccess
