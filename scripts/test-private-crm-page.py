@@ -77,8 +77,11 @@ def server(overrides=True, https=True):
             'php_admin_flag display_errors Off', 'php_admin_flag opcache.enable Off',
         ]) + '\n')
         subprocess.run([apache, '-t', '-f', str(configuration)], check=True, capture_output=True)
+        # Apache can signal its process group during shutdown. Keep that group
+        # separate from Python/the CI runner before terminating the fixture.
         process = subprocess.Popen([apache, '-f', str(configuration), '-DFOREGROUND'],
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                                   start_new_session=True)
 
         class Fixture:
             def activate(self):
