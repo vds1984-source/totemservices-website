@@ -85,11 +85,11 @@ def server(overrides=True, https=True):
 
         class Fixture:
             def activate(self):
-                text = (PAGE / '.htaccess').read_text()
-                text = text.replace('Require all denied', '\n'.join([
+                text = '\n'.join([
+                    'Options -Indexes', 'DirectoryIndex index.php',
                     'AuthType Basic', 'AuthName "Totem private fixture"', 'AuthBasicProvider file',
                     f'AuthUserFile "{password_file}"', 'Require valid-user',
-                ]), 1)
+                ]) + '\n'
                 (protected / '.htaccess').write_text(text)
 
             def config(self, contents):

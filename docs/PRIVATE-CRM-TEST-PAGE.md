@@ -6,8 +6,8 @@ This is the private **entry page**, not an installation of the full CRM. The cur
 
 ## Protection and deployment behavior
 
-- Adds a new folder only. No public navigation, sitemap, robots file, main website configuration or live CRM file is changed.
-- The shipped directory configuration denies every request. PHP also requires the web server's authenticated `REMOTE_USER`; Basic credentials, forwarded-user headers or a hidden URL alone cannot unlock it. If `.htaccess` is ignored, PHP stays closed.
+- Adds a new page folder, tests/docs and a Git ignore rule for the server-managed authentication file. No public navigation, sitemap, robots file, main website server configuration or live CRM file is changed.
+- The PHP page denies access by default and requires the web server's authenticated `REMOTE_USER`; Basic credentials, forwarded-user headers or a hidden URL alone cannot unlock it. If directory authentication is missing or `.htaccess` is ignored, PHP stays closed. The page folder contains only `index.php`; store no other files/data there before hPanel directory protection is activated.
 - HTTPS is required. A forwarded-protocol header alone is not trusted. Responses request no caching/indexing and disallow framing; there are no external assets, JavaScript or stored credentials.
 - hPanel's native directory protection manages usernames/passwords on the server. Do not protect `public_html` itself: that would lock the public website. Do not store passwords in GitHub or this folder.
 - The launch button stays disabled until a private server file explicitly confirms the configured clone's access was verified. Only the exact HTTPS clone hostname is accepted; live CRM/main-domain URLs, credentials in URLs, other ports and redirects supplied in query parameters are rejected.
@@ -15,9 +15,9 @@ This is the private **entry page**, not an installation of the full CRM. The cur
 
 ## Manual activation after review
 
-1. Merge the reviewed page PR and let the website's existing Git deployment add the new folder. It is closed by default. Confirm the new path returns 403 and the public homepage still opens.
+1. Merge the reviewed page PR and let the website's existing Git deployment add the new folder. Its PHP entry page is closed by default. Confirm the new path returns 403 and the public homepage still opens.
 2. In hPanel, open **Websites → totemservices.org → Dashboard → Password Protect Directories**. Select **only `public_html/totem-crm-test`**. Create a unique test-area username and strong password, then select **Protect**. Keep the credentials in your password manager.
-3. Inspect this folder's `.htaccess` in File Manager. It must contain the server-generated `AuthType Basic`, `AuthUserFile` and `Require valid-user`. Only after those exist, remove this package's single `Require all denied` line if hPanel left it in place. Preserve the hPanel authentication lines. Never replace the root website `.htaccess`. If the username prompt does not appear or the page stays closed, preserve protection and report the response; do not remove the PHP guard.
+3. Inspect this folder's server-generated `.htaccess` in File Manager. It must contain `AuthType Basic`, `AuthUserFile` and `Require valid-user`; preserve these lines. The file is ignored by Git and is not shipped in this change, so normal Git updates do not replace hPanel's credentials/configuration. Never replace the root website `.htaccess`. If the username prompt does not appear or the page stays closed, preserve protection and report the response; do not remove the PHP guard.
 4. In a new private browser window, the folder and `index.php` must challenge/reject anonymous and wrong-password access. Correct credentials over HTTPS must open the page; refresh must preserve access; the response must have `Cache-Control: private, no-store` and `X-Robots-Tag: noindex`. The homepage must still work without credentials. If server `REMOTE_USER`/HTTPS metadata is absent, access remains denied until that provider behavior is verified.
 5. The initial page will honestly show **Clone not connected yet**. Provision a separate clone runtime/database/storage with synthetic data and new secrets. Do not use production KVM 4, production database URLs, mail credentials, ad credentials or real employee/client records. Keep SMTP, external AI calls, Meta publishing and workers disabled until explicitly tested/configured.
 6. Once the clone is separately working and its direct frontend/API/storage access has passed privacy checks, create `private/totem-crm-test.php` **one level above `public_html`**, outside Git/web access, using the following non-secret configuration. The already verified clone domain is the only allowed target.
@@ -38,7 +38,7 @@ Do not set `access_verified` to true before the separate clone access checks pas
 
 ## Rollback
 
-Disable/remove the outside-webroot launcher configuration or restore `Require all denied` in this folder to close the test page. The public website and live CRM do not require this folder. Keep a copy of hPanel's authentication configuration outside the Git deployment if future deployment could overwrite it; after every deployment verify protection again. The PHP guard is a second denial layer if the directory configuration reverts or disappears.
+Disable/remove the outside-webroot launcher configuration or add `Require all denied` in this folder's server-managed `.htaccess` to close the test page. The public website and live CRM do not require this folder. Keep a server-side backup of hPanel's authentication configuration outside Git, and after every deployment verify protection again. The ignore rule supports ordinary Git updates; a deploy that force-cleans ignored files or replaces the whole webroot still needs provider verification. The PHP guard denies access if the directory configuration disappears.
 
 ## References
 
