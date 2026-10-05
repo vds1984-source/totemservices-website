@@ -1,0 +1,46 @@
+name: Private CRM entry checks
+
+'on':
+  pull_request:
+    branches: [main]
+    paths:
+      - 'totem-crm-test/**'
+      - 'scripts/test-private-crm-page.py'
+      - '.github/workflows/private-crm-page-checks.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'totem-crm-test/**'
+      - 'scripts/test-private-crm-page.py'
+      - '.github/workflows/private-crm-page-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: private-crm-entry-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  access-checks:
+    name: Private entry authorization
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            totem-crm-test
+            scripts
+            .github
+      - name: Install disposable Apache and PHP fixture
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --no-install-recommends -y apache2 libapache2-mod-php8.3 php8.3-cli
+      - name: Check PHP syntax
+        run: php8.3 -n -l totem-crm-test/index.php
+      - name: Exercise protected directory and PHP guards
+        run: python3 scripts/test-private-crm-page.py
