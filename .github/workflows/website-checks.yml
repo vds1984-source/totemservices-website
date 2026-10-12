@@ -36,6 +36,9 @@ jobs:
       - name: Check pages, metadata, sitemap and local links
         run: python3 scripts/check-website.py
 
+      - name: Check HTML document boundary regression cases
+        run: python3 scripts/test-website-page-boundaries.py
+
       - name: Check JavaScript syntax
         run: git ls-files -z '*.js' | xargs -0 -r -n 1 node --check
 
