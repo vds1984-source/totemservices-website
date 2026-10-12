@@ -35,9 +35,12 @@ class Page(HTMLParser):
         self.title = None
         self.structured_data = []
         self.schema = None
+        self.html_closed = False
+        self.content_after_html = False
         self.feed(text)
 
     def handle_starttag(self, tag, attrs):
+        if self.html_closed: self.content_after_html = True
         attrs = dict(attrs)
         if tag == 'head': self.in_head = True
         self.tags.append((tag, attrs))
@@ -49,10 +52,12 @@ class Page(HTMLParser):
         self.handle_starttag(tag, attrs)
 
     def handle_data(self, data):
+        if self.html_closed and data.strip(): self.content_after_html = True
         if self.title is not None: self.title.append(data)
         if self.schema is not None: self.schema.append(data)
 
     def handle_endtag(self, tag):
+        if tag == 'html': self.html_closed = True
         if tag == 'head': self.in_head = False
         if tag == 'title' and self.title is not None:
             self.titles.append(''.join(self.title).strip())
@@ -116,6 +121,7 @@ def check_site(root, paths):
             if 'Totem helps ambitious businesses grow through strategy' in meta[0]: failures.append((name, 'Replace the generic description with a page-specific description'))
         if len(og_description) != 1 or not og_description[0]: failures.append((name, 'Expected one nonempty Open Graph description'))
         if sum(tag == 'h1' for tag, _ in page.tags) != 1: failures.append((name, 'Expected one H1 heading'))
+        if page.content_after_html: failures.append((name, 'Page content must appear before the closing HTML document'))
         if len(re.findall(r'<script\b', text, re.I)) != len(re.findall(r'</script\s*>', text, re.I)):
             failures.append((name, 'Script opening and closing tags do not match'))
         for data in page.structured_data:
