@@ -122,6 +122,37 @@ document.addEventListener('DOMContentLoaded',()=>{
     const started=form.querySelector('[name="started_at"]');
     let submitting=false;
 
+    // Submission references are kept only in this form's memory/hidden field.
+    // Unchanged failed requests retain their reference; edited payloads get a new one.
+    let submissionInput=form.querySelector('[name="SubmissionId"]');
+    if(!submissionInput){
+      submissionInput=document.createElement('input');
+      submissionInput.type='hidden';
+      submissionInput.name='SubmissionId';
+      form.appendChild(submissionInput);
+    }
+    const receiptFields=['Name','Business','Phone','Email','City','Industry','Service','Budget','Challenge','FormType',
+      ...campaignKeys.map(key=>'UTM_'+key)];
+    let attemptedPayload=null;
+    const newSubmissionId=()=>{
+      try{
+        if(typeof window.crypto?.randomUUID==='function') return window.crypto.randomUUID();
+        if(typeof window.crypto?.getRandomValues==='function'){
+          const bytes=window.crypto.getRandomValues(new Uint8Array(16));
+          bytes[6]=(bytes[6]&15)|64;
+          bytes[8]=(bytes[8]&63)|128;
+          const hex=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+          return [hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20)].join('-');
+        }
+      }catch(randomError){ /* Default SMTP forms still work without an outbox. */ }
+      return '';
+    };
+    const resetSubmission=()=>{
+      attemptedPayload=null;
+      submissionInput.value=newSubmissionId();
+    };
+    resetSubmission();
+
     // Initialise every form, including the visitor's first submission.
     if(started) started.value=Math.floor(Date.now()/1000);
 
@@ -165,6 +196,10 @@ document.addEventListener('DOMContentLoaded',()=>{
 
       applyCampaignFields();
       const fd=new FormData(form);
+      const payload=JSON.stringify(receiptFields.map(key=>String(fd.get(key) ?? '').replace(/\r\n?/g,'\n').trim()));
+      if(attemptedPayload!==null && attemptedPayload!==payload) submissionInput.value=newSubmissionId();
+      attemptedPayload=payload;
+      fd.set('SubmissionId',submissionInput.value);
       const honeypotFilled=Boolean(fd.get('website'));
       const requestedFormType=form.querySelector('[name="FormType"]')?.value;
       const formType=['contact','consultation','proposal'].includes(requestedFormType) ? requestedFormType : 'contact';
@@ -221,7 +256,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
         const data=await response.json().catch(()=>({}));
 
-        if(response.status===422 || response.status===429){
+        if(response.status===409 || response.status===422 || response.status===429){
           setStatus('error',typeof data.message==='string' ? data.message : 'Please check your details and try again.');
           return;
         }
@@ -236,6 +271,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         );
 
         form.reset();
+        resetSubmission();
 
         if(started){
           started.value=Math.floor(Date.now()/1000);
@@ -359,3 +395,4 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 
 });
+

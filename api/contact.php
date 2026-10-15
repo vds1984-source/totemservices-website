@@ -167,6 +167,23 @@ if (!$rateLimit['allowed']) {
     totem_respond(429, 'Too many enquiries have been submitted from this connection. Please wait ' . $waitText . ' and try again, or contact us on WhatsApp.');
 }
 
+// Capture is opt-in through complete server configuration; never through a request.
+require_once __DIR__ . '/enquiry-outbox.php';
+try {
+    $outboxSettings = totem_outbox_settings($_SERVER['DOCUMENT_ROOT'] ?? '');
+    if ($outboxSettings['enabled']) {
+        $outboxPost = totem_outbox_prepare_submission($_POST);
+        totem_outbox_enqueue($outboxPost, time(), $_SERVER['DOCUMENT_ROOT'] ?? '');
+    }
+} catch (TotemOutboxInput $error) {
+    totem_respond(422, 'Reload the form to obtain a valid submission reference.');
+} catch (TotemOutboxConflict $error) {
+    totem_respond(409, 'This submission reference was already used. Edit the form and submit it as a new enquiry.');
+} catch (Throwable $error) {
+    // No enquiry contents, credentials, private paths or exception details.
+    totem_respond(503, 'Enquiry delivery is temporarily unavailable. Please contact us on WhatsApp.');
+}
+
 $fields    = $validation['fields'];
 $name      = $fields['Name'];
 $business  = $fields['Business'];
@@ -237,3 +254,4 @@ try {
     error_log('Totem contact form SMTP error: ' . $e->getMessage());
     totem_respond(503, 'Enquiry delivery is temporarily unavailable. Please contact us on WhatsApp.');
 }
+
