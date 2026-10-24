@@ -1,0 +1,15 @@
+/* Scoped reading layout for the healthcare enquiry and IVF agency guides. */
+#main-content.healthcare-guide .wrap{max-width:800px}
+#main-content.healthcare-guide .pagehero h1{max-width:100%;line-height:1.15}
+#main-content.healthcare-guide .section h2{font-size:clamp(27px,3.2vw,36px);line-height:1.25}
+#main-content.healthcare-guide .section p,#main-content.healthcare-guide .section li{line-height:1.8}
+#main-content.healthcare-guide .section li>a{color:#43571f;text-decoration:underline;text-underline-offset:3px}
+#main-content.healthcare-guide .section a:focus-visible,#main-content.healthcare-guide .guide-table-scroll:focus-visible{outline:3px solid #526b26;outline-offset:4px}
+#main-content.healthcare-guide .guide-table-scroll{max-width:100%;overflow-x:auto;margin:24px 0;border:1px solid #d8ddd2;border-radius:8px}
+#main-content.healthcare-guide .guide-stage-table{width:100%;min-width:38rem;border-collapse:collapse;font-size:1rem;line-height:1.65;text-align:left}
+#main-content.healthcare-guide .guide-stage-table caption{text-align:left;font-weight:700;color:#353535;padding:16px;background:#f5f7f1}
+#main-content.healthcare-guide .guide-stage-table th,#main-content.healthcare-guide .guide-stage-table td{padding:16px;vertical-align:top;border-top:1px solid #d8ddd2}
+#main-content.healthcare-guide .guide-stage-table thead th{background:#353535;color:#fff}
+#main-content.healthcare-guide .guide-stage-table tbody th{width:29%;font-weight:700;background:#f5f7f1}
+#main-content.healthcare-guide .guide-related{border-top:1px solid #e1e4dd}
+@media(max-width:650px){#main-content.healthcare-guide .pagehero{padding:48px 0}#main-content.healthcare-guide .guide-stage-table th,#main-content.healthcare-guide .guide-stage-table td{padding:12px}}
