@@ -43,10 +43,11 @@
 <input class="field" id="enquiry-service" name="Service" aria-label="Interested service" required maxlength="120" type="text">
 </label>
 <label for="enquiry-budget">Marketing budget *
-<select class="field" id="enquiry-budget" name="Budget" aria-label="Marketing budget" required><option value="">Select a budget</option><option>Below ₹12K</option><option>₹12K–₹25K</option><option>₹25K–₹50K</option><option>₹50K–₹1L</option><option>₹1L–₹2L</option><option>₹2L+</option></select>
+<select class="field" id="enquiry-budget" name="Budget" aria-label="Marketing budget" aria-describedby="proposal-budget-guidance" required><option value="">Select a budget</option><option>Below ₹12K</option><option>₹12K–₹25K</option><option>₹25K–₹50K</option><option>₹50K–₹1L</option><option>₹1L–₹2L</option><option>₹2L+</option></select>
 </label>
+<p class="small wide" id="proposal-budget-guidance">In Main challenge / goal, state the period your selected budget covers and whether it includes agency fees, advertising spend or both.</p>
 <label class="wide" for="enquiry-challenge">Main challenge / goal *
-<textarea class="field" id="enquiry-challenge" name="Challenge" aria-label="Main challenge / goal" required maxlength="2000" rows="5"></textarea>
+<textarea class="field" id="enquiry-challenge" name="Challenge" aria-describedby="proposal-budget-guidance" aria-label="Main challenge / goal" required maxlength="2000" rows="5"></textarea>
 </label>
 <div class="hp-field" aria-hidden="true"><label>Website<input tabindex="-1" autocomplete="off" name="website"></label></div>
 <input type="hidden" name="started_at" value="">
