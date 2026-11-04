@@ -141,3 +141,49 @@
 
 /* Keep article reading width from constraining the site navigation. */
 .insight-article .header .navrow{max-width:1240px}
+
+/* Keep keyboard focus clear of the fixed navigation on enquiry pages. */
+.enquiry-page {
+  scroll-padding-top: 5rem;
+}
+
+.enquiry-skip-link {
+  position: fixed;
+  top: .75rem;
+  left: .75rem;
+  z-index: 100;
+  padding: .75rem 1rem;
+  border-radius: .5rem;
+  background: #353535;
+  color: #fff;
+  font-weight: 700;
+  transform: translateY(calc(-100% - 1rem));
+}
+
+.enquiry-skip-link:focus,
+.enquiry-skip-link:hover {
+  transform: none;
+  color: #fff;
+}
+
+.enquiry-page .leadform .field {
+  border-color: #767676;
+}
+
+.enquiry-page .leadform a[href="/privacy-policy/"] {
+  text-decoration: underline;
+}
+
+.enquiry-page .leadform a[href="/privacy-policy/"]:hover {
+  color: #526b2c;
+}
+
+.enquiry-page .leadform .btn:hover {
+  background: #526b2c;
+}
+
+@media (max-width: 650px) {
+  .enquiry-page {
+    scroll-padding-bottom: 4rem;
+  }
+}
