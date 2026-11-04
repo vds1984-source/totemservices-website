@@ -34,6 +34,17 @@
       };
 
       buttons.forEach(button => button.addEventListener('click', () => applyFilter(button.dataset.workFilter)));
+
+      document.querySelectorAll('.work-hero-links a[data-work-jump]').forEach(link => {
+        const section = sections.find(item => `#${item.id}` === link.hash);
+        if (!section) return;
+        link.addEventListener('click', event => {
+          if (!section.hidden || event.defaultPrevented || event.button !== 0 ||
+              event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+          applyFilter(link.dataset.workJump);
+        });
+      });
+
       videos.forEach(video => {
         video.addEventListener('play', () => videos.forEach(other => {
           if (other !== video && !other.paused) other.pause();
