@@ -1,5 +1,9 @@
 RewriteEngine On
 
+# Redirect the observed privacy alias to the current policy.
+RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+RewriteRule ^privacy/?$ https://totemservices.org/privacy-policy/ [R=301,L]
+
 # Redirect explicit index.html requests, preserving query parameters.
 # GET/HEAD only: do not redirect form POSTs.
 RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
