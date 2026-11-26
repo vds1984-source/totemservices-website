@@ -1,0 +1,47 @@
+name: Homepage candidate browser proof
+
+'on':
+  push:
+    branches: [codex/homepage-browser-check-20261126]
+
+permissions:
+  contents: read
+
+jobs:
+  offline-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out the test-only branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # existing repository pin, v7.0.1
+        with:
+          fetch-depth: 3
+          persist-credentials: false
+          sparse-checkout: |
+            /*
+            !*.mp4
+          sparse-checkout-cone-mode: false
+
+      - name: Prepare the pinned browser driver
+        shell: bash
+        run: |
+          node --version
+          test -x /usr/bin/google-chrome
+          npm install --prefix "$RUNNER_TEMP/pr49-browser" --ignore-scripts --no-audit --no-fund --save-exact playwright-core@1.62.1
+
+      - name: Check source and compare offline browser variants
+        shell: bash
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/pr49-browser/node_modules/playwright-core
+          PROOF_DIR: ${{ runner.temp }}/pr49-proof
+        run: node scripts/check-homepage-browser.mjs
+
+      - name: Preserve browser evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pr49-offline-browser-proof
+          path: ${{ runner.temp }}/pr49-proof
+          if-no-files-found: error
+          retention-days: 14
