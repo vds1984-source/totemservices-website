@@ -1,4 +1,5 @@
-// Offline PR49 browser proof only. Never imported by the production site.
+// Offline PR49 decoder-rounding diagnostic. Never imported by the production site.
+// This is a successor diagnostic; strict RGBA equality run45872144712 remains failed.
 // Run from the repository root with CHROME_BIN, PLAYWRIGHT_MODULE and PROOF_DIR.
 // PROOF_DIR must be inside RUNNER_TEMP or the operating system temporary directory.
 import assert from 'node:assert/strict';
@@ -33,14 +34,22 @@ const profiles = [320, 390, 650, 651, 950, 1280].map(width => ({
 })).concat([{ id: '390-dpr3', width: 390, height: 844, dpr: 3 }]);
 const failures = [];
 const summary = {
-  purpose: 'Offline deterministic layout, interaction and browser colour proof; not a production performance test.',
+  purpose: 'Offline deterministic layout/interaction proof and explicit bounded decoder-rounding diagnostic; not a production performance test.',
+  priorStrictGate: { run: '45872144712', failures: 30, reason: 'Exact browser PNG/WebP RGBA parity', preserved: true },
+  diagnosticCriteria: {
+    exactAlpha: true, nativeOpaqueRGBExact: true, nativePartialAlphaChangesMatchExactDecoderModel: true,
+    maxReconstructed8BitPremultipliedRGBError: 1, maxOpaqueCompositeRGBError: 1,
+    opaqueBackgrounds: ['#000000', '#ffffff', '#f7f4ed'], strictRawRGBAEqualityIsNotClaimed: true
+  },
   base: BASE, target: TARGET, generatedAt: new Date().toISOString(),
   source: {}, browser: null, runs: [], failures,
   caveats: [
     'All page requests are locally fulfilled or locally blocked; no public hosting/CDN timings are measured.',
     'Google Fonts CSS and preconnect hints are replaced/removed in memory, identically in every variant, using pinned repository Latin font fixtures.',
     'Full-page screenshots use CSS pixels; hero screenshots use device pixels.',
-    'Canvas hashes are browser-rendered pixels, not the Pillow raw RGBA hash: canvas alpha premultiplication may alter invisible RGB.',
+    'PNG/WebP browser RGBA is not exactly equal: libwebp floor premultiplication is tested against an exact native arithmetic model.',
+    'The one-code-value bound applies to reconstructed 8-bit premultiplied RGB and opaque composites. Continuous alpha-weighted readback error is reported separately.',
+    'This quantifies a rendering difference in this browser and tested sizes; it does not claim universal pixel identity or a human-perception threshold.',
     'Missing unchanged repository assets and blocked analytics are listed separately, never described as successful loads.'
   ]
 };
@@ -406,31 +415,128 @@ async function main() {
         const rect = document.querySelector('.heroimg').getBoundingClientRect();
         const sizes = [[1428, 1026], [Math.max(1, Math.round(rect.width * devicePixelRatio)),
           Math.max(1, Math.round(rect.height * devicePixelRatio))]];
-        const results = [];
         const hash = async data => [...new Uint8Array(await crypto.subtle.digest('SHA-256', data))]
           .map(byte => byte.toString(16).padStart(2, '0')).join('');
-        for (const [width, height] of sizes) for (const background of ['transparent', '#ffffff', '#f7f4ed']) {
-          const data = images.map(image => {
-            const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
-            const ctx = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' });
-            if (background !== 'transparent') { ctx.fillStyle = background; ctx.fillRect(0, 0, width, height); }
-            ctx.drawImage(image, 0, 0, width, height);
-            return ctx.getImageData(0, 0, width, height).data;
-          });
-          let differentChannels = 0, maxChannelError = 0;
-          for (let i = 0; i < data[0].length; i++) {
-            const delta = Math.abs(data[0][i] - data[1][i]);
-            if (delta) differentChannels++;
-            maxChannelError = Math.max(maxChannelError, delta);
+        const draw = (image, width, height, background) => {
+          const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' });
+          if (background !== 'transparent') { ctx.fillStyle = background; ctx.fillRect(0, 0, width, height); }
+          ctx.drawImage(image, 0, 0, width, height);
+          return ctx.getImageData(0, 0, width, height).data;
+        };
+        const metrics = async (left, right, width, height, background) => {
+          let differentRGBChannels = 0, differentPixels = 0, maxRawRGBError = 0, totalRGBError = 0;
+          let differentAlphaChannels = 0, maxAlphaError = 0, nonOpaqueOutputAlphaChannels = 0;
+          let partialAlphaRGBDifferences = 0, opaqueRGBDifferences = 0, zeroAlphaRGBDifferences = 0;
+          let differentPremultipliedRGBChannels8Bit = 0, maxPremultipliedRGBError8Bit = 0;
+          let maxPremultipliedFloatRGBError = 0;
+          for (let i = 0; i < left.length; i += 4) {
+            const a = left[i + 3], b = right[i + 3], alphaError = Math.abs(a - b);
+            if (alphaError) differentAlphaChannels++;
+            maxAlphaError = Math.max(maxAlphaError, alphaError);
+            if (a !== 255) nonOpaqueOutputAlphaChannels++;
+            if (b !== 255) nonOpaqueOutputAlphaChannels++;
+            let pixelDifferent = alphaError !== 0;
+            for (let channel = 0; channel < 3; channel++) {
+              const x = left[i + channel], y = right[i + channel], error = Math.abs(x - y);
+              const leftPremultiplied = Math.round(x * a / 255);
+              const rightPremultiplied = Math.round(y * b / 255);
+              const premultipliedError = Math.abs(leftPremultiplied - rightPremultiplied);
+              if (premultipliedError) differentPremultipliedRGBChannels8Bit++;
+              maxPremultipliedRGBError8Bit = Math.max(maxPremultipliedRGBError8Bit, premultipliedError);
+              maxPremultipliedFloatRGBError = Math.max(maxPremultipliedFloatRGBError,
+                Math.abs(x * a / 255 - y * b / 255));
+              if (error) {
+                differentRGBChannels++; pixelDifferent = true; totalRGBError += error;
+                if (a === 0) zeroAlphaRGBDifferences++;
+                else if (a === 255) opaqueRGBDifferences++;
+                else partialAlphaRGBDifferences++;
+              }
+              maxRawRGBError = Math.max(maxRawRGBError, error);
+            }
+            if (pixelDifferent) differentPixels++;
           }
-          results.push({ width, height, background, pngSHA256: await hash(data[0]),
-            webpSHA256: await hash(data[1]), differentChannels, maxChannelError });
+          return { width, height, background, pngSHA256: await hash(left), webpSHA256: await hash(right),
+            rawRGBAExactlyEqual: differentRGBChannels === 0 && differentAlphaChannels === 0,
+            differentRGBChannels, differentPixels, maxRawRGBError, meanAbsoluteRGBError: totalRGBError / (width * height * 3),
+            differentAlphaChannels, maxAlphaError, nonOpaqueOutputAlphaChannels,
+            partialAlphaRGBDifferences, opaqueRGBDifferences, zeroAlphaRGBDifferences,
+            differentPremultipliedRGBChannels8Bit, maxPremultipliedRGBError8Bit, maxPremultipliedFloatRGBError };
+        };
+        const transparent = [], composites = [];
+        let model;
+        for (let size = 0; size < sizes.length; size++) {
+          const [width, height] = sizes[size];
+          const data = images.map(image => draw(image, width, height, 'transparent'));
+          transparent.push(await metrics(data[0], data[1], width, height, 'transparent'));
+          if (size === 0) {
+            const expected = new Uint8ClampedArray(data[0].length);
+            let mismatchedChannels = 0, maxChannelError = 0, partialAlphaPixels = 0;
+            for (let i = 0; i < expected.length; i += 4) {
+              const alpha = data[0][i + 3]; expected[i + 3] = alpha;
+              if (alpha > 0 && alpha < 255) partialAlphaPixels++;
+              for (let channel = 0; channel < 3; channel++) {
+                // libwebp floors premultiplication; canvas readback rounds unpremultiplication.
+                const premultiplied = Math.floor(data[0][i + channel] * alpha / 255);
+                expected[i + channel] = alpha === 0 ? 0 : Math.round(premultiplied * 255 / alpha);
+              }
+              for (let channel = 0; channel < 4; channel++) {
+                const error = Math.abs(expected[i + channel] - data[1][i + channel]);
+                if (error) mismatchedChannels++;
+                maxChannelError = Math.max(maxChannelError, error);
+              }
+            }
+            model = { name: 'floor(RGB*A/255), then nearest unpremultiply',
+              predictedSHA256: await hash(expected), observedSHA256: await hash(data[1]),
+              mismatchedChannels, maxChannelError, partialAlphaPixels };
+          }
+          for (const background of ['#000000', '#ffffff', '#f7f4ed']) {
+            const opaque = images.map(image => draw(image, width, height, background));
+            composites.push(await metrics(opaque[0], opaque[1], width, height, background));
+          }
         }
-        return { imageDimensions: images.map(image => [image.naturalWidth, image.naturalHeight]), results };
+        return {
+          criteriaVersion: 'decoder-rounding-diagnostic-v1',
+          strictRawRGBAEqualityPreservedAsObservation: transparent.every(item => item.rawRGBAExactlyEqual),
+          imageDimensions: images.map(image => [image.naturalWidth, image.naturalHeight]),
+          premultipliedMetric: '8-bit samples reconstructed as round(readbackRGB * alpha / 255); continuous readback-weighted error is also reported, not asserted <= 1.',
+          transparent, composites, model
+        };
       }, ['/' + PNG, '/' + WEBP]);
-      record(run.colour.imageDimensions.every(size => same(size, [1428, 1026])) &&
-        run.colour.results.every(item => item.differentChannels === 0 && item.maxChannelError === 0 &&
-          item.pngSHA256 === item.webpSHA256), id + ': exact browser PNG/WebP RGBA parity', run.colour);
+      const native = run.colour.transparent[0], scaled = run.colour.transparent[1];
+      record(run.colour.imageDimensions.every(size => same(size, [1428, 1026])),
+        id + ': source image dimensions remain exact', run.colour.imageDimensions);
+      record(native.pngSHA256 === '7d2e47894fac96c44d4b18ee936245b9ca2c8b7fb4287245df999974116a9562' &&
+        native.webpSHA256 === '562140c6a08d4e2d1a8fafd96f823de3688d393c3c42589c58fdc931e6a18dc6',
+        id + ': native browser PNG and known decoder result pinned', native);
+      record(run.colour.model.mismatchedChannels === 0 && run.colour.model.maxChannelError === 0 &&
+        run.colour.model.predictedSHA256 === native.webpSHA256,
+        id + ': every native WebP channel matches decoder arithmetic', run.colour.model);
+      record(run.colour.transparent.every(item => item.differentAlphaChannels === 0 && item.maxAlphaError === 0),
+        id + ': exact browser alpha at native and scaled sizes', run.colour.transparent);
+      record(native.opaqueRGBDifferences === 0 && native.zeroAlphaRGBDifferences === 0 &&
+        native.differentRGBChannels === native.partialAlphaRGBDifferences,
+        id + ': native RGB differences confined to partial alpha', native);
+      record(run.colour.transparent.every(item => item.maxPremultipliedRGBError8Bit <= 1),
+        id + ': reconstructed 8-bit premultiplied RGB error bounded by one code value', run.colour.transparent);
+      record(run.colour.composites.every(item => item.maxRawRGBError <= 1 &&
+        item.differentAlphaChannels === 0 && item.maxAlphaError === 0 && item.nonOpaqueOutputAlphaChannels === 0),
+        id + ': black white cream composites bounded by one RGB code value', run.colour.composites);
+      console.log(JSON.stringify({
+        case: id, strictRawRGBAEqual: run.colour.strictRawRGBAEqualityPreservedAsObservation,
+        modelMismatchChannels: run.colour.model.mismatchedChannels,
+        native: { differentRGBChannels: native.differentRGBChannels, maxRawRGBError: native.maxRawRGBError,
+          alphaMismatches: native.differentAlphaChannels, opaqueRGBDifferences: native.opaqueRGBDifferences,
+          maxPremultiplied8BitError: native.maxPremultipliedRGBError8Bit,
+          maxPremultipliedFloatError: native.maxPremultipliedFloatRGBError },
+        scaled: { width: scaled.width, height: scaled.height, differentRGBChannels: scaled.differentRGBChannels,
+          maxRawRGBError: scaled.maxRawRGBError, alphaMismatches: scaled.differentAlphaChannels,
+          maxPremultiplied8BitError: scaled.maxPremultipliedRGBError8Bit,
+          maxPremultipliedFloatError: scaled.maxPremultipliedFloatRGBError },
+        composites: run.colour.composites.map(item => ({ width: item.width, height: item.height,
+          background: item.background, differentRGBChannels: item.differentRGBChannels,
+          maxRGBError: item.maxRawRGBError, alphaMismatches: item.differentAlphaChannels }))
+      }));
       run.formSubmissions = await page.evaluate(() => window.__proofSubmissions);
       record(run.formSubmissions.length === 0, id + ': no form submission', run.formSubmissions);
       record(run.policyViolations.length === 0, id + ': no forbidden network/navigation', run.policyViolations);
