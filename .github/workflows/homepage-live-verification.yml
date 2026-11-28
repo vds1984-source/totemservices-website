@@ -1,0 +1,85 @@
+name: Homepage live browser verification
+
+'on':
+  push:
+    branches: [codex/homepage-live-check-20261128]
+
+permissions:
+  contents: read
+
+jobs:
+  live-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Check out the test-only branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # existing repository pin, v7.0.1
+        with:
+          fetch-depth: 4
+          persist-credentials: false
+          sparse-checkout: |
+            /*
+            !*.mp4
+          sparse-checkout-cone-mode: false
+
+      - name: Prepare the pinned browser driver
+        shell: bash
+        run: |
+          node --version
+          test -x /usr/bin/google-chrome
+          npm install --prefix "$RUNNER_TEMP/homepage-live-browser" --ignore-scripts --no-audit --no-fund --save-exact playwright-core@1.62.1
+
+      - name: Verify the published public page
+        shell: bash
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/homepage-live-browser/node_modules/playwright-core
+          PROOF_DIR: ${{ runner.temp }}/homepage-live-proof
+          SCRIPT_SHA256: e9b49866d61b0f0343b1283db606234245671c333fffd76ac7cb888d6655c259
+        run: node scripts/check-homepage-live.mjs
+
+      - name: Preserve browser evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # existing repository pin, v4
+        with:
+          name: homepage-live-browser-proof
+          path: ${{ runner.temp }}/homepage-live-proof
+          if-no-files-found: error
+          retention-days: 14
+
+  mobile-lab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the test-only lab script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/measure-homepage-lab.mjs
+          sparse-checkout-cone-mode: false
+      - name: Prepare the pinned official Lighthouse package
+        shell: bash
+        run: |
+          test -x /usr/bin/google-chrome
+          npm install --prefix "$RUNNER_TEMP/homepage-lab" --ignore-scripts --no-audit --no-fund --save-exact lighthouse@13.6.0
+      - name: Measure the published homepage once
+        shell: bash
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+          LIGHTHOUSE_MODULE: ${{ runner.temp }}/homepage-lab/node_modules/lighthouse
+          LAB_DIR: ${{ runner.temp }}/homepage-mobile-lab
+          SCRIPT_SHA256: db095f39b0520f219d5d01aa26ce8dc3df57e895282128315e74dc26eb26d0a9
+        run: node scripts/measure-homepage-lab.mjs
+      - name: Preserve the standalone diagnostic and dependency lock
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: homepage-standalone-mobile-lab
+          path: |
+            ${{ runner.temp }}/homepage-mobile-lab
+            ${{ runner.temp }}/homepage-lab/package-lock.json
+          if-no-files-found: error
+          retention-days: 14
