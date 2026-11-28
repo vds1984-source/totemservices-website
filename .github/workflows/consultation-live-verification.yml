@@ -35,7 +35,7 @@ jobs:
           CHROME_BIN: /usr/bin/google-chrome
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/contact-live-browser/node_modules/playwright-core
           PROOF_DIR: ${{ runner.temp }}/contact-live-proof
-          SCRIPT_SHA256: c4fb4fd65d271efe8e6602136fef00f2059aa3e2fea9bd78ce83094afa553a76
+          SCRIPT_SHA256: 023c30343f0ec716ac1338054378bc51ca5e27f5dbd7a4ffd55d12c3838aff58
         run: node scripts/check-consultation-live.mjs
 
       - name: Preserve browser evidence

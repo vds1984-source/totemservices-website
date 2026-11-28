@@ -44,12 +44,12 @@ try{
     args:['--disable-background-networking','--disable-component-update','--disable-extensions','--no-first-run','--no-default-browser-check','--dns-prefetch-disable']});
   summary.browser={version:browser.version(),node:process.version,playwright:'1.62.1'};
   for(const profile of [{id:'desktop',width:1280,height:900,dpr:1},{id:'mobile',width:390,height:844,dpr:3}]){
-    const run={profile,startedAt:new Date().toISOString(),requests:[],responses:[],blockedTracking:[],violations:[],pageErrors:[]};
+    const run={profile,startedAt:new Date().toISOString(),requests:[],responses:[],blockedTracking:[],shutdownBlockedAllowed:[],violations:[],pageErrors:[]};
     summary.runs.push(run);
     const context=await browser.newContext({viewport:{width:profile.width,height:profile.height},deviceScaleFactor:profile.dpr,
       serviceWorkers:'block',locale:'en-US',timezoneId:'UTC',colorScheme:'light'});
     const page=await context.newPage();page.setDefaultTimeout(15000);
-    const pending=[];
+    const pending=[],inFlight=new Set();let shuttingDown=false;
     page.on('pageerror',error=>run.pageErrors.push(String(error)));
     context.on('page',popup=>{if(popup!==page){run.violations.push('unexpected-popup');void popup.close();}});
     await context.routeWebSocket('**/*',socket=>{run.violations.push('websocket');socket.close();});
@@ -83,11 +83,12 @@ try{
       }else if(!request.isNavigationRequest()&&url.hostname==='fonts.googleapis.com')allowed=url.pathname==='/css2';
       else if(!request.isNavigationRequest()&&url.hostname==='fonts.gstatic.com')allowed=url.pathname.endsWith('.woff2')&&!url.search;
       if(!allowed)return block('not-an-approved-public-document-or-static-resource');
+      if(shuttingDown){run.shutdownBlockedAllowed.push(row);return block('shutdown-allowed-public-request-blocked',false);}
       // route.continue may follow redirects beyond the routed URL. Fetch only
       // this approved URL and reject every redirect before browser fulfillment.
       const headers={...request.headers()};
       delete headers.cookie;delete headers.authorization;delete headers['proxy-authorization'];
-      try{
+      const work=Promise.resolve().then(async()=>{try{
         row.outcome='direct-public-get-attempt';
         const response=await route.fetch({maxRedirects:0,timeout:15000,headers});
         row.publicStatus=response.status();
@@ -95,8 +96,11 @@ try{
         const body=await response.body();row.publicBytes=body.length;
         if(body.length>1000000){record(false,profile.id+': public response byte cap',row);return block('public-response-byte-cap',false);}
         row.outcome='fresh-public-response-fulfilled';
-        return route.fulfill({response,body});
-      }catch(error){record(false,profile.id+': direct public GET succeeded',{url:row.url,error:String(error)});return block('public-get-error',false);}
+        return await route.fulfill({response,body});
+      }catch(error){record(false,profile.id+': direct public GET succeeded',{url:row.url,error:String(error)});return block('public-get-error',false);}});
+      inFlight.add(work);
+      void work.finally(()=>inFlight.delete(work)).catch(()=>{});
+      return work;
     });
     page.on('response',response=>{
       const row={url:response.url(),status:response.status(),type:response.headers()['content-type']};run.responses.push(row);
@@ -147,7 +151,29 @@ try{
       record(run.responses.some(r=>r.url===URL&&r.sha256===EXPECTED_HTML)&&run.responses.some(r=>r.url===WEBP&&r.sha256===EXPECTED_WEBP),profile.id+': expected bodies observed');
       record(run.violations.length===0&&run.pageErrors.length===0,profile.id+': no policy violations or page errors',{violations:run.violations,errors:run.pageErrors});
     }catch(error){run.error=String(error.stack||error);record(false,profile.id+': live case completed',run.error);}
-    finally{run.finishedAt=new Date().toISOString();await json(profile.id+'-run.json',run);await context.close();}
+    finally{
+      // Stop new allowed traffic while forbidden guards stay installed, then
+      // finish pending public fetch/fulfill and response-hash work before close.
+      shuttingDown=true;
+      for(let pass=0;pass<50;pass++){
+        const bodies=[...pending];
+        await Promise.allSettled([...inFlight,...bodies]);
+        await new Promise(resolve=>setImmediate(resolve));
+        if(inFlight.size===0&&pending.length===bodies.length)break;
+        if(pass===49)record(false,profile.id+': bounded pending-work drain');
+      }
+      if(!page.isClosed()){
+        try{
+          run.submissions=await page.evaluate(()=>window.__liveCheckSubmissions??['missing-guard']);
+          run.beacons=await page.evaluate(()=>window.__liveCheckBeacons??['missing-guard']);
+          record(run.submissions.length===0&&run.beacons.length===0,profile.id+': zero submissions or beacons through drain');
+        }catch(error){record(false,profile.id+': final guard observation',String(error));}
+      }
+      await context.close();
+      await Promise.allSettled([...inFlight,...pending]);
+      record(run.violations.length===0&&run.pageErrors.length===0,profile.id+': safe completed teardown',{violations:run.violations,errors:run.pageErrors});
+      run.finishedAt=new Date().toISOString();await json(profile.id+'-run.json',run);
+    }
   }
   await browser.close();browser=null;
   summary.finishedAt=new Date().toISOString();summary.passed=failures.length===0;
